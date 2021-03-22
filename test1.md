@@ -55,9 +55,36 @@ HAVING d.department_name in ('IT','Sales');
 ## 实验注意事项，完成时间： 2021-3-17日前上交
 
 - 请按时完成实验，过时扣分。
-- 查询语句及分析文档`必须提交`到：你的Oracle项目中的test1目录中。
+- 查询语句及分析文档`必须提交`到：你的oracle项目中的test1目录中。
 - 上交后，通过这个地址应该可以打开你的源码：https://github.com/你的用户名/oracle/tree/master/test1
 - 实验分析及结果文档说明书用Markdown格式编写。
+
+## 具体做法流程
+
+- 登录你的GitHub账号，创建一个公有资料库oracle，创建一个test1目录，在test1目录中，至少创建一个文件：README.md，里面有你的作业文字，截图文件。
+- 复制地址：https://github.com/youruser/oracle.git
+- 在本机运行克隆命令：
+- $git clone https://github.com/youruser/oracle.git
+- 自动在本地磁盘上生成oracle目录
+- 启动vscode，打开oracle目录
+- 创建一个test1目录，在test1目录中，至少创建一个文件：README.md，里面有你的作业文字，截图文件。
+- 作业完成后，推送到github网站（git add ,git commit,git push）
+- 推送时，如果出现错误OpenSSL SSL_connect: SSL_ERROR_SYSCALL in connection to github.com，应添加Windows环境变量：GIT_SSL_NO_VERIFY=true。如果出现Time Out超时，等待一会儿，再次推送。
+- 作业目录样例
+  
+```text
+oracle
+   test1
+      README.md
+      pict1.png
+      pict2.png
+   test2
+      README.md
+      pict1.png
+      pict2.png
+  ...
+  test5  
+```
 
 ## 评分标准
 

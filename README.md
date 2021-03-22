@@ -94,31 +94,6 @@ git remote add origin https://github.com/zwdcdu/oracle.git
 git push -u origin master
 ```
 
-## GitHub上不能显示图片的解决方法
-
-- 修改：C:\Windows\System32\drivers\etc\hosts，在文件后面增加：
-
-```text
-# GitHub Start 
-192.30.253.112    github.com 
-192.30.253.119    gist.github.com
-151.101.184.133    assets-cdn.github.com
-151.101.184.133    raw.githubusercontent.com
-151.101.184.133    gist.githubusercontent.com
-151.101.184.133    cloud.githubusercontent.com
-151.101.184.133    camo.githubusercontent.com
-151.101.184.133    avatars0.githubusercontent.com
-151.101.184.133    avatars1.githubusercontent.com
-151.101.184.133    avatars2.githubusercontent.com
-151.101.184.133    avatars3.githubusercontent.com
-151.101.184.133    avatars4.githubusercontent.com
-151.101.184.133    avatars5.githubusercontent.com
-151.101.184.133    avatars6.githubusercontent.com
-151.101.184.133    avatars7.githubusercontent.com
-151.101.184.133    avatars8.githubusercontent.com
-# GitHub End
-```
-
 ## 添加student用户
 
 ```shell
@@ -223,4 +198,90 @@ ps -ef | grep oracleorcl
 查看监听状态：
 lsnrctl service
 lsnrctl status
+```
+
+## 收集表的统计信息
+
+- system登录到pdborcl
+
+```sql
+
+CREATE TABLE hr.emp_test as SELECT * FROM hr.employees;
+INSERT INTO hr.emp_test SELECT * FROM hr.employees;
+INSERT INTO hr.emp_test SELECT * FROM hr.employees;
+INSERT INTO hr.emp_test SELECT * FROM hr.employees;
+
+select count(*) from hr.emp_test;
+
+--统计前
+explain plan for SELECT * FROM hr.emp_test WHERE  employee_id=110;
+SELECT * FROM TABLE(dbms_xplan.display);
+--rows = 1，这是错误的基数
+
+------------------------------------------------------------------------------
+| Id  | Operation         | Name     | Rows  | Bytes | Cost (%CPU)| Time     |
+------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT  |          |     1 |    69 |     3   (0)| 00:00:01 |
+|*  1 |  TABLE ACCESS FULL| EMP_TEST |     1 |    69 |     3   (0)| 00:00:01 |
+------------------------------------------------------------------------------
+
+--统计后，让数据库感知表hr.emp_test记录数量的变化 
+EXEC DBMS_STATS.GATHER_TABLE_STATS('HR','EMP_TEST');
+explain plan for SELECT * FROM hr.emp_test WHERE  employee_id=110;
+SELECT * FROM TABLE(dbms_xplan.display);
+--rows = 4 这是正确的基数，有利于构建正确的计划
+
+------------------------------------------------------------------------------
+| Id  | Operation         | Name     | Rows  | Bytes | Cost (%CPU)| Time     |
+------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT  |          |     4 |   276 |     6   (0)| 00:00:01 |
+|*  1 |  TABLE ACCESS FULL| EMP_TEST |     4 |   276 |     6   (0)| 00:00:01 |
+------------------------------------------------------------------------------
+
+--实验完成后：
+drop table hr.emp_test;
+
+```
+
+
+## 从pdborcl创建可插接数据库
+
+新数据库存入：/home/student/pdb/新数据库名称
+
+```sql
+$ sqlplus / as sysdba
+替代命令：
+$ sqlplus sys/123@202.115.82.8/orcl as sysdba
+
+查看创建前的数据库：
+show pdbs
+
+--关闭pdborcl
+ALTER PLUGGABLE DATABASE pdborcl CLOSE;
+--或者先切换到pdborcl：
+alter session set container=pdborcl
+shutdown immediate
+
+--切换数据库，回到CDB
+alter session set container=cdb$root
+
+--只读方式打开pdborcl
+ALTER PLUGGABLE DATABASE pdborcl OPEN READ ONLY;
+
+--创建数据库clonedb
+CREATE PLUGGABLE DATABASE clonedb FROM pdborcl file_name_convert=('/home/oracle/app/oracle/oradata/orcl/pdborcl'，'/home/student/pdb/clonedb');
+
+--创建成功后，重新打开pdborcl为读写状态
+ALTER PLUGGABLE DATABASE pdborcl CLOSE;
+ALTER PLUGGABLE DATABASE pdborcl OPEN;
+--打开新数据库
+ALTER PLUGGABLE DATABASE clonedb OPEN;
+--查看新数据库
+show pdbs;
+
+--创建成功后,退出sys用户，以hr登录到新数据库,测试一下
+$ sqlplus hr/123@202.115.82.8/clonedb 
+
+--重新sys登录,删除新增的数据库
+DROP PLUGGABLE DATABASE clonedb INCLUDING DATAFILES;
 ```
