@@ -170,7 +170,7 @@ ORCL =
 - 菜单：工具->监视会话
 - 通过UI界面菜单，或者sql语句完成相应操作
 
-## 启用共享连接 
+## 启用共享连接
 
 - sys登录
 - sqlplus sys/123@localhost/orcl as sysdba
@@ -256,32 +256,131 @@ $ sqlplus sys/123@202.115.82.8/orcl as sysdba
 查看创建前的数据库：
 show pdbs
 
---关闭pdborcl
-ALTER PLUGGABLE DATABASE pdborcl CLOSE;
+--1.关闭pdborcl
+ALTER PLUGGABLE DATABASE pdborcl CLOSE immediate;
 --或者先切换到pdborcl：
 alter session set container=pdborcl
 shutdown immediate
-
 --切换数据库，回到CDB
 alter session set container=cdb$root
 
---只读方式打开pdborcl
+--2.只读方式打开pdborcl
 ALTER PLUGGABLE DATABASE pdborcl OPEN READ ONLY;
 
---创建数据库clonedb
+--3.创建数据库clonedb
 CREATE PLUGGABLE DATABASE clonedb FROM pdborcl file_name_convert=('/home/oracle/app/oracle/oradata/orcl/pdborcl'，'/home/student/pdb/clonedb');
 
---创建成功后，重新打开pdborcl为读写状态
-ALTER PLUGGABLE DATABASE pdborcl CLOSE;
-ALTER PLUGGABLE DATABASE pdborcl OPEN;
---打开新数据库
+--4.打开新数据库
 ALTER PLUGGABLE DATABASE clonedb OPEN;
 --查看新数据库
 show pdbs;
 
+--5.创建成功后，重新打开pdborcl为读写状态
+ALTER PLUGGABLE DATABASE pdborcl CLOSE immediate;
+ALTER PLUGGABLE DATABASE pdborcl OPEN;
+
+--6.测试
 --创建成功后,退出sys用户，以hr登录到新数据库,测试一下
 $ sqlplus hr/123@202.115.82.8/clonedb 
+--查看数据库相关文件
+$ ls /home/student/pdb/clonedb
 
+--7.删除新数据库（可选）
 --重新sys登录,删除新增的数据库
 DROP PLUGGABLE DATABASE clonedb INCLUDING DATAFILES;
+```
+
+## 从pdborcl创建可插接数据库,简单流程
+
+- 以yourdb为源数据库，yourdb已经打开为read only
+- 将zhang改为自己的数据库名称
+
+```sql
+$ sqlplus sys/123@202.115.82.8/orcl as sysdba
+CREATE PLUGGABLE DATABASE zhang1 FROM yourdb file_name_convert=('/home/student/pdb/yourdb'，'/home/student/pdb/ zhang1 ');
+--4.打开新数据库
+ALTER PLUGGABLE DATABASE zhang OPEN;
+--查看新数据库
+show pdbs;
+--6.测试
+--创建成功后,退出sys用户，以hr登录到新数据库,测试一下
+$ sqlplus hr/123@202.115.82.8/ zhang 
+--查看数据库相关文件
+$ ls /home/student/pdb/ zhang
+--7 删除pdb
+ALTER PLUGGABLE DATABASE zhang close;
+Drop pluggable database zhang including datafiles;
+
+```
+
+## 表空间命令
+
+--查看表空间大小：
+ select tablespace_name,sum(bytes)/1024/1024 from dba_data_files group by tablespace_name;
+
+--查看表空间已使用大小：
+
+ select tablespace_name,sum(bytes)/1024/1024 from dba_free_space group by tablespace_name;
+ 
+ --查看表空间所在的文件地址
+select * from dba_data_files
+
+--查看表空间下的表
+select table_name, tablespace_name,OWNER from dba_tables where tablespace_name = 'USERS';
+
+--查看表的大小
+select segment_name,segment_type,sum(bytes/1024/1024) from dba_segments
+where segment_type='TABLE'
+and segment_name = 'JOBS'
+group by segment_name, segment_type;
+
+## In_Memory
+
+```sql
+--创建表sales，插入100万条记录
+CREATE TABLE sales
+   (ID NUMBER primary key, 
+	NAME VARCHAR2(50 BYTE) not null, 
+	QUANTITY NUMBER(8,0), 
+	PRICE NUMBER(8,0)
+);
+
+--插入100万行数据
+declare 
+v1 number;
+v2 number;
+begin
+    delete from sales;
+    for i in 1..1000000
+    loop
+        v1:=dbms_random.value(1,90);
+        v2:=dbms_random.value(100,900);
+        insert into sales(id,name,quantity,price) values (i,'name'||i,v1,v2);
+    end loop;
+    commit;
+end;
+
+插入过程中，如果遇到超出表空间 'USERS' 的空间限额，可以执行：
+alter user 你的用户名 quota unlimited on users;
+
+--进行IN-Memory前后的查询对比
+
+--in-memory前：
+--两次执行:
+set autotrace on TRACEONLY 
+select sum(quantity*price) total from sales;
+
+--in-memory：
+set autotrace on
+alter table sales inmemory;
+
+--in-memory后：
+--两次执行:
+select sum(quantity*price) total from sales;
+
+观察consistent gets的数量，越少越快。
+
+--查询总金额
+
+
 ```
