@@ -384,3 +384,20 @@ select sum(quantity*price) total from sales;
 
 
 ```
+
+## 无法启动的错误：ORA-01157: 无法标识/锁定数据文件 414 的解决办法
+
+```sql
+startup mount
+alter database datafile 414 offline drop;
+recover database;
+alter database open;
+```
+
+## git push 错误
+
+```shell
+git push
+fatal: unable to access 'https://github.com/zwdcdu/oracle.git/': OpenSSL SSL_connect: SSL_ERROR_SYSCALL in connection to github.com:443 
+## git config --global http.sslVerify "false"
+```
